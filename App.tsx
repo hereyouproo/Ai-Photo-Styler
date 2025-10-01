@@ -73,8 +73,10 @@ const App: React.FC = () => {
   const [styleToEdit, setStyleToEdit] = useState<Style | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isComparing, setIsComparing] = useState(false);
+  const [countdown, setCountdown] = useState(0);
 
   const uploaderRef = useRef<UploaderHandle>(null);
+  const countdownTimerRef = useRef<number | null>(null);
   const LOCAL_STORAGE_KEY = 'ai-photo-styler-styles';
 
   // --- Effects ---
@@ -136,6 +138,19 @@ const App: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [toastMessage]);
+
+  useEffect(() => {
+    if (countdown > 0) {
+      countdownTimerRef.current = window.setTimeout(() => {
+        setCountdown(countdown - 1);
+      }, 1000);
+    }
+    return () => {
+      if (countdownTimerRef.current) {
+        window.clearTimeout(countdownTimerRef.current);
+      }
+    };
+  }, [countdown]);
 
   // --- Handlers ---
   const handleSaveApiKey = (newKey: string) => {
@@ -263,7 +278,37 @@ const App: React.FC = () => {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unknown error occurred.";
-      if (message.toLowerCase().includes('api key not valid')) {
+      const isRateLimitError = (err instanceof Error && (
+        err.message.includes('429') || 
+        err.message.toLowerCase().includes('quota') || 
+        err.message.toLowerCase().includes('resource_exhausted')
+      ));
+
+      if (isRateLimitError) {
+        let retryDelay = 30; // Default wait time in seconds
+        try {
+          const jsonStringMatch = message.match(/{.*}/s);
+          if (jsonStringMatch) {
+            const errorDetails = JSON.parse(jsonStringMatch[0]);
+            const retryInfo = errorDetails.error?.details?.find(
+              (d: any) => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo'
+            );
+            if (retryInfo && retryInfo.retryDelay) {
+              const delaySeconds = parseInt(retryInfo.retryDelay.replace('s', ''), 10);
+              if (!isNaN(delaySeconds) && delaySeconds > 0) {
+                  retryDelay = delaySeconds;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Could not parse retry delay from the error message. Defaulting.", e);
+        }
+        
+        setError(`Rate limit reached. Please wait ${retryDelay}s before trying again.`);
+        setCountdown(retryDelay);
+        setToastMessage(`Please wait ${retryDelay}s`);
+
+      } else if (message.toLowerCase().includes('api key not valid')) {
         setError("Your API Key is invalid or has been revoked. Please enter a valid one.");
         localStorage.removeItem(API_KEY_STORAGE_KEY);
         setApiKey(null); setIsApiKeyModalOpen(true);
@@ -428,8 +473,14 @@ const App: React.FC = () => {
                                 {selectedStyle ? <img src={selectedStyle.imageUrl} alt={selectedStyle.name} className="w-full h-full object-cover" /> : <SparklesIcon className="w-6 h-6 text-gray-300" />}
                             </button>
                             <textarea value={prompt} onChange={handlePromptChange} onFocus={() => setIsPromptFocused(true)} onBlur={() => setIsPromptFocused(false)} placeholder="Describe an image to create, or a style to apply..." rows={isPromptFocused ? 4 : 1} className="w-full bg-transparent text-base py-3 px-2 focus:outline-none resize-none custom-scrollbar transition-all duration-300 ease-in-out" />
-                            <button onClick={handleGenerate} disabled={isLoading || (sourceFiles.length === 0 && !prompt.trim())} className="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-lg bg-blue-600 font-semibold hover:bg-blue-500 disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors">
-                                {isLoading ? <Spinner /> : <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>}
+                            <button onClick={handleGenerate} disabled={isLoading || countdown > 0 || (sourceFiles.length === 0 && !prompt.trim())} className="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-lg bg-blue-600 font-semibold text-white hover:bg-blue-500 disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors">
+                                {isLoading ? (
+                                    <Spinner />
+                                ) : countdown > 0 ? (
+                                    <span className="text-sm font-mono">{countdown}s</span>
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+                                )}
                             </button>
                         </div>
                     </div>
