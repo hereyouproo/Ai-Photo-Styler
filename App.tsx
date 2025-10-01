@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { Style } from './types';
@@ -396,7 +395,7 @@ const App: React.FC = () => {
   };
   
   return (
-    <div className="h-screen w-screen bg-[#121212] text-white flex flex-col antialiased overflow-hidden">
+    <div className="h-dvh w-screen bg-[#121212] text-white flex flex-col antialiased overflow-hidden">
         <ApiKeyModal isOpen={isApiKeyModalOpen} onSave={handleSaveApiKey} />
 
         {apiKey ? (
