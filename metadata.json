@@ -1,0 +1,5 @@
+{
+  "name": "AI Photo Styler",
+  "description": "An application to apply artistic styles to your photos using AI. Style templates are dynamically fetched from a public Google Sheet.",
+  "requestFramePermissions": []
+}
