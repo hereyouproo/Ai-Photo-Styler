@@ -75,6 +75,7 @@ const App: React.FC = () => {
   const [countdown, setCountdown] = useState(0);
 
   const uploaderRef = useRef<UploaderHandle>(null);
+  const promptTextAreaRef = useRef<HTMLTextAreaElement>(null);
   const countdownTimerRef = useRef<number | null>(null);
   const LOCAL_STORAGE_KEY = 'ai-photo-styler-styles';
 
@@ -216,6 +217,15 @@ const App: React.FC = () => {
         setSelectedStyleName(null);
     }
   }
+
+  const handlePromptFocus = () => {
+    setIsPromptFocused(true);
+    // On mobile devices, the virtual keyboard can take a moment to appear.
+    // A short timeout ensures the layout has adjusted before we scroll the input into view.
+    setTimeout(() => {
+      promptTextAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, 300);
+  };
 
   const handleGenerate = async () => {
     if (!aiRef.current) {
@@ -471,7 +481,16 @@ const App: React.FC = () => {
                             <button onClick={() => setIsStyleSelectionOpen(true)} className="flex-shrink-0 w-12 h-12 rounded-lg bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center overflow-hidden">
                                 {selectedStyle ? <img src={selectedStyle.imageUrl} alt={selectedStyle.name} className="w-full h-full object-cover" /> : <SparklesIcon className="w-6 h-6 text-gray-300" />}
                             </button>
-                            <textarea value={prompt} onChange={handlePromptChange} onFocus={() => setIsPromptFocused(true)} onBlur={() => setIsPromptFocused(false)} placeholder="Describe an image to create, or a style to apply..." rows={isPromptFocused ? 4 : 1} className="w-full bg-transparent text-base py-3 px-2 focus:outline-none resize-none custom-scrollbar transition-all duration-300 ease-in-out" />
+                            <textarea
+                                ref={promptTextAreaRef}
+                                value={prompt} 
+                                onChange={handlePromptChange} 
+                                onFocus={handlePromptFocus} 
+                                onBlur={() => setIsPromptFocused(false)} 
+                                placeholder="Describe an image to create, or a style to apply..." 
+                                rows={isPromptFocused ? 4 : 1} 
+                                className="w-full bg-transparent text-base py-3 px-2 focus:outline-none resize-none custom-scrollbar transition-all duration-300 ease-in-out" 
+                            />
                             <button onClick={handleGenerate} disabled={isLoading || countdown > 0 || (sourceFiles.length === 0 && !prompt.trim())} className="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-lg bg-blue-600 font-semibold text-white hover:bg-blue-500 disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors">
                                 {isLoading ? (
                                     <Spinner />
